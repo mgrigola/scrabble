@@ -1,0 +1,16 @@
+INPUT(
+./debug\main.o
+./debug\DrawBorderDelegate.o
+./debug\WidgetLegendLines.o
+./debug\ColorMaps.o
+./debug\DigitRecognizer.o
+./debug\TableWidgetSudoku.o
+./debug\MainWindowSudoku.o
+./debug\SudokuSolver.o
+./debug\SudokuBoard.o
+./debug\SudokuReader.o
+./debug\moc_DrawBorderDelegate.o
+./debug\moc_WidgetLegendLines.o
+./debug\moc_TableWidgetSudoku.o
+./debug\moc_MainWindowSudoku.o
+);
