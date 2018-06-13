@@ -4,17 +4,19 @@ ScrabbleHand::ScrabbleHand(unsigned int maxTiles) :
     maxTileCount(maxTiles),
     tileCount(0)
 {
-    tilesInHand = std::vector<ScrabbleTile>(maxTileCount, ScrabbleTile() );
+    tilesInHand = std::vector<ScrabbleTile*>(maxTileCount, nullptr);
 }
 
 bool ScrabbleHand::draw_to_fill(TileBag& srcBag)
 {
     while(tileCount<maxTileCount)
     {
-        if ( srcBag.draw_tile(tilesInHand[tileCount]) )
-            ++tileCount;
-        //if bag ran out of tiles, it returns fale and we can't draw any more tiles
-        else return false;
+        ScrabbleTile* pTile = srcBag.draw_tile();
+        //if bag ran out of tiles, it returns false and we can't draw any more tiles
+        if ( pTile == nullptr )
+            return false;
+        tilesInHand[tileCount] = pTile;
+        ++tileCount;
     }
     return true;
 }
@@ -22,7 +24,7 @@ bool ScrabbleHand::draw_to_fill(TileBag& srcBag)
 
 //this should get called after like playing some tiles (they remove from hand and go to board)
 //assume tileToRemoveIndices is sorted
-bool ScrabbleHand::remove_from_hand(std::vector<unsigned int> removeIndices)
+bool ScrabbleHand::remove_indices_from_hand(std::vector<unsigned int> removeIndices)
 {
     size_t newIdx = 0, rmvElemNo = 0, rmvCount = removeIndices.size();
     //we want to remove each element of our hand specified in removeIndices and shift all the remaining stuff down
@@ -61,11 +63,10 @@ bool ScrabbleHand::exchange_tiles(TileBag &srcBag, std::vector<unsigned int> til
         return false;
 
     //gather the unwanted tiles from hand
-    std::vector<ScrabbleTile> swapTiles;
+    std::vector<ScrabbleTile*> swapTiles(tilesToExchangeIndices.size());
+    size_t swapIdx = 0;
     for (unsigned int exchangeIdx : tilesToExchangeIndices)
-    {
-        swapTiles.push_back(tilesInHand[exchangeIdx]);
-    }
+        swapTiles[swapIdx++] = tilesInHand[exchangeIdx];
 
     //put unwanted tiles back in bag and draw equal number of new tiles (new tiles now in swapTiles)
     srcBag.exchange_tiles(swapTiles);
@@ -79,13 +80,29 @@ bool ScrabbleHand::exchange_tiles(TileBag &srcBag, std::vector<unsigned int> til
     return true;
 }
 
+//pretty inefficient, not very elegant... maybe there's a better way to do this? maybe hash table index to map tile to position in tilesInHand? maybe tilesInHand should be linked list? maybe getstuff built as is and worry about cleanup at end...
+bool ScrabbleHand::remove_from_hand(ScrabbleTile* pTileToRemove)
+{
+    for (size_t tileNo=0; tileNo<tileCount; ++tileNo)           //loop over tiles in hand
+    {
+        if (tilesInHand[tileNo] == pTileToRemove)              //if found tile we're looking to remove
+        {
+            --tileCount;                                        //we want tiles[0:tileCount-1] to be our hand
+            if (tileNo != tileCount)                            //we ditch the tile we found
+                tilesInHand[tileNo] = tilesInHand[tileCount];   //so 'swap' with tilesInHand[tileCount], shift last element into our now-smaller hand
+            return true;                                        //stop loop once found
+        }
+    }
+    return false; //didn't find the requested tile to remove. didn't remove anything
+}
 
-void ScrabbleHand::get_letters(std::string& letterString)
+
+void ScrabbleHand::get_letters(std::string& letterString) const
 {
     letterString.reserve(tileCount);
     //loop on tileNo, not items in tilesInHand. we could have fewer than 7 tiles, but hand length is always 7
     for (size_t tileNo=0; tileNo < tileCount; ++tileNo)
-        letterString.push_back( tilesInHand[tileNo].tileLetter );
+        letterString.push_back( tilesInHand[tileNo]->tileLetter );
 }
 
 
@@ -94,3 +111,10 @@ bool ScrabbleHand::is_empty(void)
     return (tileCount == 0);
 }
 
+std::ostream& operator<<(std::ostream& stream, const ScrabbleHand& hand)
+{
+    std::string letters;
+    hand.get_letters(letters);
+    stream << letters;
+    return stream;
+}

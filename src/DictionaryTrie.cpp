@@ -1,12 +1,12 @@
 #include "DictionaryTrie.h"
 
 //binary search links for c. links (vector) is stored sorted by target value (the letter it links to).
-bool TrieLeaf::contains(const char cTgt, TrieLeaf& leafLink)
+TrieLeaf* TrieLeaf::find_leaf(const char cTgt)
 {
     size_t N = links.size();
     //no current links. Trying to avoid unsigned = -1
     if (N == 0)
-        return false;
+        return nullptr;
 
     //basic binary search
     size_t lowIdx=0, highIdx=N-1;
@@ -18,18 +18,13 @@ bool TrieLeaf::contains(const char cTgt, TrieLeaf& leafLink)
         leafVal = links[idx]->val;
 
         if (cTgt > leafVal)         //target greater than mid item, search upper half
-        {
             lowIdx = idx+1;
-        }
         else if (cTgt == leafVal)   //found target, already exists
-        {
-            leafLink = *links[idx];
-            return true;
-        }
+            return links[idx];
         else                        //target less than mid item, search lower half
         {
             if (idx==0)             //beware unsigned overflow, 0-1 = 2^32. this happens after lowIdx=0, highIdx=1, val<leafVal(lowIdx)
-                return false;
+                return nullptr;
             highIdx = idx-1;
         }
     }
@@ -37,15 +32,12 @@ bool TrieLeaf::contains(const char cTgt, TrieLeaf& leafLink)
     //we break above when low==high. we still need to check if links[low (or high)] is the target
     leafVal = links[lowIdx]->val;
     if (leafVal == cTgt)
-    {
-        leafLink = *links[lowIdx];
-        return true;
-    }
+        return links[lowIdx];
 
-    return false;
+    return nullptr;
 }
 
-TrieLeaf* TrieLeaf::contains_create(const char cTgt)
+TrieLeaf* TrieLeaf::find_create_leaf(const char cTgt)
 {
     TrieLeaf* pLeaf;
     size_t lowIdx=0, highIdx=links.size();
@@ -134,7 +126,7 @@ DictionaryTrie::DictionaryTrie(const std::string& dictFileName) :
     trieHead( )
 {
 //    for (char c='A'; c<='Z'; ++c)
-//        trieHead.contains_create(c);
+//        trieHead.find_create_leaf(c);
 
     if (!dictFileName.empty())
         read_file(dictFileName);
@@ -159,7 +151,7 @@ bool DictionaryTrie::add_word(const std::string& wordStr)
 {
     TrieLeaf* pLeaf = &trieHead;
     for (const char c : wordStr)
-        pLeaf = pLeaf->contains_create(c);
+        pLeaf = pLeaf->find_create_leaf(c);
 
 
     pLeaf->set_word_end();
@@ -169,22 +161,24 @@ bool DictionaryTrie::add_word(const std::string& wordStr)
 
 bool DictionaryTrie::is_word(const std::string& wordStr)
 {
-    TrieLeaf leafLink = trieHead;
+    TrieLeaf* pLeafLink = &trieHead;
     for (const char c : wordStr)
-        if ( !leafLink.contains(c, leafLink) )
+    {
+        pLeafLink = pLeafLink->find_leaf(c);
+        if ( pLeafLink==nullptr )
             return false;
+    }
 
-    return leafLink.is_word_end();
+    return pLeafLink->is_word_end();
 }
 
 
 //we probably want to check if curLeaf actually has children (links)
 //possibly we want to loop over curLeaf's links if count(links) < count(remainingLetters) ?
 //probably wanna divide out some pieces as separate functions to make "?"/blank handling not a mess
-void DictionaryTrie::build_words_from_set_r(TrieLeaf* curLeaf, const std::vector<char>& remainingLetters, std::vector<std::string>& outputWords)
+void DictionaryTrie::build_words_from_set_r(TrieLeaf* pCurLeaf, const std::vector<char>& remainingLetters, std::vector<std::string>& outputWords)
 {
     size_t N = remainingLetters.size();
-    TrieLeaf newLeaf;
     for (size_t charNo=0; charNo<N; ++charNo)
     {
         char c = remainingLetters[charNo];
@@ -198,7 +192,7 @@ void DictionaryTrie::build_words_from_set_r(TrieLeaf* curLeaf, const std::vector
         if (c == '?')
         {
             size_t linkNo = 0;
-            TrieLeaf* pQLeaf = curLeaf->get_child_at(linkNo);
+            TrieLeaf* pQLeaf = pCurLeaf->get_child_at(linkNo);
 
             //make sure curLeaf actually has children
             if (pQLeaf == nullptr)
@@ -221,10 +215,10 @@ void DictionaryTrie::build_words_from_set_r(TrieLeaf* curLeaf, const std::vector
                 {
                     std::string parentWord = "";
                     pQLeaf->get_parent_word_r(parentWord);
-                    size_t wrdSz = parentWord.size();
-                    parentWord[wrdSz-1] = '[';
-                    parentWord += pQLeaf->get_val();
-                    parentWord += "?]";
+                    //size_t wrdSz = parentWord.size();
+                    //parentWord[wrdSz-1] = '[';
+                    //parentWord += pQLeaf->get_val();
+                    //parentWord += "?]";
 
                     outputWords.push_back(parentWord);
                 }
@@ -234,20 +228,20 @@ void DictionaryTrie::build_words_from_set_r(TrieLeaf* curLeaf, const std::vector
                     build_words_from_set_r(pQLeaf, newQLetters, outputWords);
 
                 ++linkNo;
-                pQLeaf = curLeaf->get_child_at(linkNo);  //return nullptr when linkNo = links/size();  links is private
+                pQLeaf = pCurLeaf->get_child_at(linkNo);  //return nullptr when linkNo = links/size();  links is private
             }
-
             continue;
         }
 
         //check each letter in our current letter list. see if curLeaf has a link to the letter. If not, this branch is dead end, try other letters
-        if ( !curLeaf->contains(c, newLeaf) )
+        TrieLeaf* pNewLeaf = pCurLeaf->find_leaf(c);
+        if ( pNewLeaf==nullptr )
             continue;
 
-        if (newLeaf.is_word_end())
+        if (pNewLeaf->is_word_end())
         {
             std::string parentWord = "";
-            newLeaf.get_parent_word_r(parentWord);
+            pNewLeaf->get_parent_word_r(parentWord);
             outputWords.push_back(parentWord);
         }
 
@@ -263,16 +257,20 @@ void DictionaryTrie::build_words_from_set_r(TrieLeaf* curLeaf, const std::vector
         for (size_t copyCharNo=charNo+1; copyCharNo<N; copyCharNo++)
             newLetters[copyCharNo-1] = remainingLetters[copyCharNo];
 
-        build_words_from_set_r(&newLeaf, newLetters, outputWords);
+        build_words_from_set_r(pNewLeaf, newLetters, outputWords);
     }
 
 }
 
 
-void DictionaryTrie::build_words_from_set(const std::vector<char>& wordLetters, std::vector<std::string>& outputWords)
+void DictionaryTrie::build_words_from_set(const std::vector<char>& wordLetters, std::vector<std::string>& outputWords, bool printResults)
 {
     build_words_from_set_r(&trieHead, wordLetters, outputWords);
     std::sort(outputWords.begin(), outputWords.end() );
+
+    if (!printResults)
+        return;
+
     size_t charCnt=0, maxCharsInRow=128, strSz;
     char lastChar = ' ';
     for (std::string str : outputWords)
@@ -293,11 +291,11 @@ void DictionaryTrie::build_words_from_set(const std::vector<char>& wordLetters, 
 
 
 //bool my_sort_func (char i,char j) { return (i<j); }
-void DictionaryTrie::build_words_from_word(const std::string& wordStr, std::vector<std::string>& outputWords)
+void DictionaryTrie::build_words_from_string(const std::string& wordStr, std::vector<std::string>& outputWords, bool printResults)
 {
     std::vector<char> wordLetters(wordStr.begin(), wordStr.end() );
     std::sort( wordLetters.begin(), wordLetters.end());
-    build_words_from_set(wordLetters, outputWords);
+    build_words_from_set(wordLetters, outputWords, printResults);
 }
 
 
@@ -308,7 +306,91 @@ void DictionaryTrie::print_trie(void)
     for (char letter : childLetters)
     {
         std::cout << letter << " - ";
-        TrieLeaf* pLeaf = trieHead.contains_create(letter);
+        TrieLeaf* pLeaf = trieHead.find_create_leaf(letter);
         std::cout << pLeaf->get_child_letters() << std::endl;
     }
+}
+
+bool compare_tile_pointers(const ScrabbleTile* pTileA, const ScrabbleTile* pTileB)
+{
+    return pTileA->tileLetter < pTileB->tileLetter;
+}
+
+//bool my_sort_func (char i,char j) { return (i<j); }
+void DictionaryTrie::build_words_from_hand(std::vector<ScrabbleTile*>& handTiles, std::vector<std::vector<ScrabbleTile*>>& outputWords, bool printResults)
+{
+    size_t N = handTiles.size();
+    std::vector<ScrabbleTile*> handPTiles(N), firstWord;
+    for (size_t tileNo=0; tileNo<N; ++tileNo)
+        handPTiles[tileNo] = handTiles[tileNo];
+//    for (ScrabbleTile& tile : handTiles)
+//        handPTiles.push_back(&tile);
+
+    std::sort(handPTiles.begin(), handPTiles.end(), compare_tile_pointers);
+    build_words_from_hand_r(&trieHead, handPTiles, outputWords, firstWord);
+}
+
+
+void DictionaryTrie::build_words_from_hand_r(TrieLeaf* pCurLeaf, std::vector<ScrabbleTile*>& remainingTiles, std::vector<std::vector<ScrabbleTile*>>& outputWords, std::vector<ScrabbleTile*>& currentWord)
+{
+    size_t N = remainingTiles.size();   //letters remaining
+    size_t M = currentWord.size();      //letters in current word (also depth in trie, and 7-N)
+
+    //build our new word to hold currentWord+nextTile. we'll only do this once and then change the trailing tile for differnt values of the nextTile
+    std::vector<ScrabbleTile*> newWord(M+1);
+    std::vector<ScrabbleTile*> newRemainingTiles(N-1);
+    for (size_t tileNo=1; tileNo<N; ++tileNo)  { newRemainingTiles[tileNo-1] = remainingTiles[tileNo]; } //initialize/copy new remains from old minus first old element
+    for (size_t tileNo=0; tileNo<M; ++tileNo)  { newWord[tileNo] = currentWord[tileNo]; }                //copy currentWord to newWord. leave last element open to add newTile
+
+    TrieLeaf* pNewLeaf;
+    //tileNo is index of tile we're going to 'play'/add to the word we're building
+    //we'll 'remove' it from our remaining tiles and 'add' it to our current word, then continue building off this new sub-word
+    for (size_t tileNo=0; tileNo<N; ++tileNo)
+    {
+        ScrabbleTile* pTile = remainingTiles[tileNo];
+        char c = pTile->tileLetter;
+        if (tileNo>0 && remainingTiles[tileNo-1]->tileLetter==c)
+            continue;
+
+        //update our remaining tiles (only need to change 1 tile for each tileNo, other N-2 tiles are unchanged). we must do this even if this new sub-word isn't valud (no leaf in trie)
+        if (tileNo>0)
+            newRemainingTiles[tileNo-1] = remainingTiles[tileNo-1];
+
+        //handle blanks. they can be any letter, so follow any children of leaf and take the blank to be that child-letter
+        if (c == '?')
+        {
+            size_t linkCount = pCurLeaf->links.size();
+            if (linkCount==0)
+                continue;
+
+            //this seems like a likely problem. i think we might lose the blank's usedLetter at the least
+            ScrabbleBlankTile* pBlank = new ScrabbleBlankTile(*pTile);
+            newWord[M] = pBlank;
+            for (size_t linkNo=0; linkNo < linkCount; ++linkNo)
+            {
+                pNewLeaf = pCurLeaf->get_child_at(linkNo);  //shouldn't be possible to have null leaf here
+                pBlank->usedLetter = pNewLeaf->get_val();   //set our blank to the letter we're using
+
+                if (pNewLeaf->is_word_end())
+                    outputWords.push_back(newWord);
+
+                if ( N > 1 )
+                    build_words_from_hand_r(pNewLeaf, newRemainingTiles, outputWords, newWord);
+            }
+        }
+
+        //check each letter in our current letter list. see if curLeaf has a link to the letter. If not, this branch is dead end, try other letters
+        pNewLeaf = pCurLeaf->find_leaf(c);
+        if ( pNewLeaf==nullptr )
+            continue;
+
+        newWord[M] = pTile;
+        if (pNewLeaf->is_word_end())
+            outputWords.push_back(newWord);
+
+        // if 1 char left, we can't go any deeper. we just checked if this last letter forms a word. this is end of the line
+        if ( N > 1 )
+            build_words_from_hand_r(pNewLeaf, newRemainingTiles, outputWords, newWord);
+    }
+
 }

@@ -9,18 +9,26 @@ HEADERS +=  \
     ScrabbleTile.h \
     TileBag.h \
     ScrabbleHand.h \
-    DictionaryTrie.h
+    DictionaryTrie.h \
+    ScrabbleBoard.h \
+    ScrabbleMove.h \
+    ScrabbleBlankTile.h \
+    TileSequence.h
 
 SOURCES +=  main.cpp \
     MainWindowScrabble.cpp \
     TileBag.cpp \
     ScrabbleHand.cpp \
-    DictionaryTrie.cpp
+    DictionaryTrie.cpp \
+    ScrabbleBoard.cpp \
+    ScrabbleMove.cpp \
+    TileSequence.cpp
 
 
-INCLUDEPATH += "C:/Users/m/Documents/GitHub/Qt/common/build/include"
+INCLUDEPATH += "../../qt_common/opencv/include"
 
-LIBS += -L"C:/Users/m//Documents/GitHub/Qt/common/build/x86/mingw/lib" \
+#comment
+LIBS += -L"../../qt_common/opencv/x86/mingw/lib" \
         -lopencv_highgui310 \
         -lopencv_core310 \
         -lopencv_imgcodecs310 \

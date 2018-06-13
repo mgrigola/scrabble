@@ -46,6 +46,8 @@ bool TileBag::load_tile_bag_file(const std::string& fileTileLoad)
     if (!inputFile.is_open())
         return false;
 
+    tileVals.clear();
+    tileCounts.clear();
     maxTileCount = 0;
     char bagChar;
     unsigned int bagCount, tileValue;
@@ -62,6 +64,10 @@ bool TileBag::load_tile_bag_file(const std::string& fileTileLoad)
 
             ++alphabetLength;
             maxTileCount += bagCount;
+
+            //keep track of tile counts and values so we can look up, query, display, whatever, to user later
+            tileVals[bagChar] = tileValue;
+            tileCounts[bagChar] = bagCount;
         }
     }
 
@@ -102,37 +108,40 @@ void TileBag::shuffle_bag(void)
 //simply take the top tile from the deck/bag. We do not pop/delete the element, just decrement remainingCount
 //while in hand or in play, the tile remains in its place in the tileBag vector
 //returns false if out of tiles to draw, else true
-bool TileBag::draw_tile(ScrabbleTile& drawnTile)
+ScrabbleTile* TileBag::draw_tile(void)
 {
     if (remainingTileCount > 0)
     {
         --remainingTileCount;
-        drawnTile = tilesInBag[remainingTileCount];
-        return true;
+        return &tilesInBag[remainingTileCount];
+        //--tileCounts[drawnTile.tileLetter]; // we do this when play tile on board, not draw, else can figure out opponents tiles maybe
     }
-    return false;
+    return nullptr;
 }
 
 
 //we put the unwanted tiles 'back in the bag' first, then draw the new hand - possibly giving the same unwanted tiles
 //note: we lose the original configuration of the bag upon shuffling (and we have no memory of what tiels players exchanged)
-void TileBag::exchange_tiles(std::vector<ScrabbleTile>& unwantedTiles)
+void TileBag::exchange_tiles(std::vector<ScrabbleTile*>& unwantedTiles)
 {
     //put unwanted tiles back in bag
-    for (ScrabbleTile sTile : unwantedTiles)
+    for (ScrabbleTile* pTile : unwantedTiles)
     {
-        tilesInBag[remainingTileCount] = sTile;
+        tilesInBag[remainingTileCount] = *pTile;
         ++remainingTileCount;
+        //++tileCounts[sTile.tileLetter]; // we do this when play tile on board, not draw
     }
 
     //reshuffle remaining tiles (remainingTiles+1 to maxTileCount are untouched, maintain draw order)
     shuffle_bag();
 
     //draw new tiles from top.
-    for (size_t replaceTileNo=0; replaceTileNo<unwantedTiles.size(); ++replaceTileNo)
+    size_t unwantedTileCount = unwantedTiles.size();
+    for (size_t replaceTileNo=0; replaceTileNo<unwantedTileCount; ++replaceTileNo)
     {
-        unwantedTiles[replaceTileNo] = tilesInBag[remainingTileCount];
+        unwantedTiles[replaceTileNo] = &tilesInBag[remainingTileCount];
         --remainingTileCount;
+        //--tileCounts[unwantedTiles[replaceTileNo].tileLetter]; // we do this when play tile on board, not draw
     }
 }
 

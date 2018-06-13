@@ -7,9 +7,12 @@
 #include <fstream>
 #include <iostream>
 
+#include "ScrabbleTile.h"
+#include "ScrabbleBlankTile.h"
 
 class TrieLeaf
 {
+    friend class DictionaryTrie;  //allow Trie to manipulate leaf private stuff
 private:
     char val; //key
     TrieLeaf* pParent;
@@ -21,8 +24,8 @@ public:
     bool is_word_end(void)  { return isWord; }
     bool is_linkless(void)  { return (links.size()==0); }
     size_t link_count(void)  { return links.size(); }
-    bool contains(char c, TrieLeaf& leafLink);
-    TrieLeaf* contains_create(char cTgt);
+    TrieLeaf* find_leaf(char cTgt);
+    TrieLeaf* find_create_leaf(char cTgt);
     std::string get_child_letters(void);
     std::string get_parent_word(void);
     void get_parent_word_r(std::string& parentWord);
@@ -37,7 +40,8 @@ class DictionaryTrie
 {
 private:
     TrieLeaf trieHead;
-    void build_words_from_set_r(TrieLeaf* curLeaf, const std::vector<char>& letters, std::vector<std::string>& outputWords);
+    void build_words_from_set_r(TrieLeaf* pCurLeaf, const std::vector<char>& letters, std::vector<std::string>& outputWords);
+    void build_words_from_hand_r(TrieLeaf* pCurLeaf, std::vector<ScrabbleTile*>& remainingTiles, std::vector<std::vector<ScrabbleTile*>>& outputWords, std::vector<ScrabbleTile*>& currentWord);
 
 public:
     DictionaryTrie(const std::string& dictFileName="");
@@ -46,9 +50,12 @@ public:
     bool add_word(const std::string& wordStr);
 
     bool is_word(const std::string& wordStr);
-    void build_words_from_set(const std::vector<char>& wordLetters, std::vector<std::string>& outputWords);
-    void build_words_from_word(const std::string& wordStr, std::vector<std::string>& outputWords);
+    void build_words_from_set(const std::vector<char>& wordLetters, std::vector<std::string>& outputWords, bool printResults=true);
+    void build_words_from_string(const std::string& wordStr, std::vector<std::string>& outputWords, bool printResults=true);
+    void build_words_from_hand(std::vector<ScrabbleTile*>& handTiles, std::vector<std::vector<ScrabbleTile*>>& outputWords, bool printResults=true);
     void print_trie(void);
+
+    TrieLeaf* get_trie_head(void)  { return &trieHead; }
 };
 
 #endif // DICTIONARYTRIE_H

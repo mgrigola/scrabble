@@ -16,7 +16,7 @@ public:
         tileID(_id)
     { }
     ScrabbleTile(const ScrabbleTile& other) { tileLetter = other.tileLetter; tileValue = other.tileValue; tileID = other.tileID; }
-    //char get_letter(void)  { return tileLetter; }
+    virtual char get_letter(void)  { return tileLetter; }
     //unsigned int get_value(void)  { return tileValue; }
 };
 
